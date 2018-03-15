@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>退单列表</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous"/>
+    <link rel="stylesheet" href="/css/bootstrap-datetimepicker.min.css">
+    <!--<link rel="stylesheet" href="https://cdn.datatables.net/1.10.16/css/jquery.dataTables.min.css">-->
+    <link rel="stylesheet" href="/css/dataTables.bootstrap.css">
+</head>
+<style>
+    .content {
+        margin: 2% 20% 0 20%;
+    }
+    input.inline_200 {
+        display: inline-block;
+        width: 200px;
+        padding: 6px 10px;
+    }
+    .col-md-10 {
+        padding-left: 0;
+    }
+</style>
+<body>
+<div class="content">
+    <h1>退单列表</h1>
+
+    <div>
+        <form action="" class="form-horizontal" onsubmit="reload(); return false;">
+            <div class="row">
+                <div class="col-md-9">
+                    <div class="form-group">
+                        <label for="orderDate" class="col-md-2 control-label">订单日期:</label>
+                        <div class="col-md-10" id="orderDate">
+                            <input type="text" class="form-control inline_200 time_picker" name="orderBeginAt" placeholder="起始日期">
+                            <input type="text" class="form-control inline_200 time_picker" name="orderEndAt" placeholder="截止日期">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="refundDate" class="col-md-2 control-label">退单日期:</label>
+                        <div class="col-md-10" id="refundDate">
+                            <input type="text" class="form-control inline_200 time_picker" name="refundApplyBeginDate" placeholder="起始日期">
+                            <input type="text" class="form-control inline_200 time_picker" name="refundApplyEndDate" placeholder="起始日期">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="name" class="col-md-2 control-label">商品名称:</label>
+                        <input type="text" class="form-control inline_200" id="name" name="name" placeholder="商品名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="orderId" class="col-md-2 control-label">订单号:</label>
+                        <input type="text" class="form-control inline_200" id="orderId" name="orderId" placeholder="订单号">
+                    </div>
+                    <!--<div class="form-group">-->
+                        <!--<label for="status" class="col-md-2 control-label">退款状态:</label>-->
+                        <!--<div class="col-md-10" id="status">-->
+                            <!--<div class="radio-inline">-->
+                                <!--<input type="radio" name="status" value="0"> 未退-->
+                            <!--</div>-->
+                            <!--<div class="radio-inline">-->
+                                <!--<input type="radio" name="status" value="1"> 已退-->
+                            <!--</div>-->
+                        <!--</div>-->
+                    <!--</div>-->
+                </div>
+                <div class="col-md-3">
+                    <div style="margin-top: 50%;">
+                        <button class="btn btn-large btn-block btn-primary" type="submit">查询</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-wrapper">
+            <div class="box-body" style="margin-top: 10px; ">
+                <table id="refund_table" class="table table-bordered table-striped" cellspacing="0" width="100%">
+                    <thead>
+                    <tr>
+                        <th>退款商品唯一标识</th>
+                        <th>订单唯一标识</th>
+                        <th>订单支付金额</th>
+                        <th>退款金额</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript" src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script type="text/javascript" src="/js/bootstrap-datetimepicker.min.js"></script>
+<script type="text/javascript" src="/js/locales/bootstrap-datetimepicker.zh-CN.js" charset="UTF-8"></script>
+<script type="text/javascript" src="/js/jquery.dataTables.min.js" charset="UTF-8"></script>
+<script type="text/javascript" src="/js/dataTables.bootstrap.min.js" charset="UTF-8"></script>
+
+<script type="text/javascript" src="/js/locales/bootstrap-datatable.zh-CN.js" charset="UTF-8"></script>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/layer/2.1/layer.js"></script>
+<script type="text/javascript">
+    //全局变量
+    var APP = {};
+
+    $(function() {
+        initDateTimePicker();
+
+        APP.refundTable = $('#refund_table').DataTable({
+            ajax: getRefundList,
+            columns: [
+                {data: "refundCommodityId"},
+                {data: "orderId"},
+                {data: "orderPaidMoney"},
+                {data: "refundFee"},
+                {data: function (e) {
+                    return "<a onclick='refund("+ JSON.stringify(e) +");return false;'>确认退款</a>";
+                }}
+            ]
+        });
+
+        function getRefundList(data, callback, settings) {
+            $.get('refundList', pageHelper(data), function(obj) {
+               callback(dataWrapper(obj));
+            }, "json");
+            /**
+             * 分页工具
+             */
+            function pageHelper(param) {
+                var queryParams = {
+                    "pageInfo.pageSize": param.length,
+                    "pageInfo.pageIndex": (param.start / param.length) + 1
+                };
+                //序列化form表单
+                $.each($('form').serializeArray(), function (idx, obj) {
+                    if (obj.value) {
+                        queryParams[obj.name] = obj.value;
+                    }
+                });
+
+                return queryParams;
+            }
+
+            function dataWrapper(result) {
+                var wrapper = {};
+                wrapper.draw = result.draw;
+
+                var data = result.data;
+                if (result.success === true && data != null) {
+                    wrapper.totalRecords = data.count;
+                    wrapper.recordsFiltered = data.count;
+                    wrapper.data = data.list;
+                } else {
+                    wrapper.totalRecords = 0;
+                    wrapper.recordsFiltered = 0;
+                    wrapper.data = [];
+                }
+                return wrapper;
+            }
+        }
+
+        function initDateTimePicker() {
+            var datePickerOption = {
+                format: 'yyyy-mm-dd hh:00:00',
+                autoclose: true,
+                language : 'zh-CN',
+                todayBtn : true,
+                endDate : new Date(),
+                minView : "day",
+                todayHighlight: true
+            };
+            $(".time_picker").datetimepicker(datePickerOption);
+        }
+    });
+
+    function reload() {
+        var index = layer.load(1, {
+            shade: [0.1, '#A9A9A']
+        });
+        APP.refundTable.ajax.reload(function() {
+            layer.close(index);
+        }, true);
+    }
+
+    function refund(refundInfo) {
+        var index = layer.load(1, {
+            shade: [0.1, '#A9A9A']
+        });
+        $.ajax({
+            url: 'refund',
+            data: JSON.stringify(refundInfo),
+            type: "POST",
+            dataType: "json",
+            contentType: "application/json;charset=utf-8",
+            success: function(obj) {
+                console.log(obj);
+                if (obj.success) {
+                    layer.msg("退款成功");
+                    reload();
+                } else {
+                    layer.msg("退款失败 :"+ obj.errMsg);
+                }
+            }
+        }).fail(function() {
+            layer.msg("服務異常！請重試");
+        }).always(function() {
+            layer.close(index);
+        });
+    }
+</script>
+</body>
+</html>
